@@ -1,0 +1,14 @@
+# Local audit output — never commit real host data
+*.log
+*.txt
+/var/log/sysaudit/
+
+# Ansible
+*.retry
+inventory/hosts.ini.local
+inventory/host_vars/
+.vault_pass
+
+# OS/editor cruft
+.DS_Store
+*.swp

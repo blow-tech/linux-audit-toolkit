@@ -1,0 +1,2 @@
+# Managed by Ansible role linux_audit_toolkit — do not edit by hand
+{{ audit_schedule_minute }} {{ audit_schedule_hour }} * * * root {% if audit_mailto %}MAILTO={{ audit_mailto }} {% endif %}{% if audit_webhook_url %}AUDIT_WEBHOOK_URL={{ audit_webhook_url }} {% endif %}AUDIT_LOGDIR={{ audit_log_dir }} {{ audit_install_dir }}/scripts/10_full_system_report.sh

@@ -1,0 +1,18 @@
+---
+# playbook.yml
+# Deploys and schedules linux-audit-toolkit across the fleet.
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.ini playbook.yml
+#   ansible-playbook -i inventory/hosts.ini playbook.yml --limit webservers
+#   ansible-playbook -i inventory/hosts.ini playbook.yml --check --diff   # dry run
+#
+# This role is read-only from the target application's perspective — it only
+# installs scripts and a schedule; no downtime, no maintenance window needed.
+
+- name: Deploy linux-audit-toolkit
+  hosts: linux_servers
+  become: true
+  gather_facts: true
+  roles:
+    - linux_audit_toolkit

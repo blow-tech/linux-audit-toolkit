@@ -1,0 +1,8 @@
+---
+- name: reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: audit toolkit updated
+  ansible.builtin.debug:
+    msg: "linux-audit-toolkit scripts updated on {{ inventory_hostname }} — no restart needed, scripts are only invoked on schedule."

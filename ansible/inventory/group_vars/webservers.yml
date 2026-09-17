@@ -1,0 +1,7 @@
+---
+# ansible/inventory/group_vars/webservers.yml
+# Example override: webservers get a tighter disk threshold and a dedicated
+# mail recipient. Delete or edit this file to match your real environment.
+
+audit_mailto: webteam@example.com
+audit_disk_threshold_pct: 80

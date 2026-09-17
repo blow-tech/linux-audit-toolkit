@@ -1,0 +1,123 @@
+---
+# tasks/main.yml — role: linux_audit_toolkit
+# Idempotent: safe to re-run. Deploys read-only audit scripts, schedules them,
+# and configures log rotation for their output. No service restarts of
+# application services (httpd/nginx/tomcat) are performed by this role.
+
+- name: Assert this is a systemd-based host (RHEL/CentOS/Rocky/Alma family)
+  ansible.builtin.assert:
+    that:
+      - ansible_service_mgr == "systemd"
+    fail_msg: >-
+      This role targets systemd-based RHEL-family hosts. Detected service
+      manager: {{ ansible_service_mgr }}. Review before running elsewhere.
+    quiet: true
+
+- name: Create install directory
+  ansible.builtin.file:
+    path: "{{ audit_install_dir }}"
+    state: directory
+    owner: "{{ audit_file_owner }}"
+    group: "{{ audit_file_group }}"
+    mode: "0755"
+
+- name: Create scripts subdirectory
+  ansible.builtin.file:
+    path: "{{ audit_install_dir }}/scripts"
+    state: directory
+    owner: "{{ audit_file_owner }}"
+    group: "{{ audit_file_group }}"
+    mode: "0755"
+
+- name: Create audit log/report directory
+  ansible.builtin.file:
+    path: "{{ audit_log_dir }}"
+    state: directory
+    owner: "{{ audit_file_owner }}"
+    group: "{{ audit_file_group }}"
+    mode: "0750"
+
+- name: Deploy audit scripts
+  ansible.builtin.copy:
+    src: "../../scripts/{{ item }}"
+    dest: "{{ audit_install_dir }}/scripts/{{ item }}"
+    owner: "{{ audit_file_owner }}"
+    group: "{{ audit_file_group }}"
+    mode: "0750"
+  loop:
+    - lib_common.sh
+    - 01_disk_space_audit.sh
+    - 02_login_logout_audit.sh
+    - 03_file_permission_audit.sh
+    - 04_service_status_audit.sh
+    - 05_webserver_log_audit.sh
+    - 06_cpu_ram_audit.sh
+    - 07_user_account_audit.sh
+    - 08_cron_audit.sh
+    - 09_network_port_audit.sh
+    - 10_full_system_report.sh
+  notify: audit toolkit updated
+
+- name: Deploy logrotate config for audit output
+  ansible.builtin.template:
+    src: sysaudit.logrotate.j2
+    dest: /etc/logrotate.d/sysaudit
+    owner: root
+    group: root
+    mode: "0644"
+
+# --- Scheduling: systemd timer (preferred) ---
+- name: Deploy systemd service unit
+  ansible.builtin.template:
+    src: linux-audit.service.j2
+    dest: /etc/systemd/system/linux-audit.service
+    owner: root
+    group: root
+    mode: "0644"
+  when: audit_use_systemd_timer | bool
+  notify: reload systemd
+
+- name: Deploy systemd timer unit
+  ansible.builtin.template:
+    src: linux-audit.timer.j2
+    dest: /etc/systemd/system/linux-audit.timer
+    owner: root
+    group: root
+    mode: "0644"
+  when: audit_use_systemd_timer | bool
+  notify: reload systemd
+
+- name: Flush handlers so systemd sees the new units before we enable them
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start the audit timer
+  ansible.builtin.systemd:
+    name: linux-audit.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: audit_use_systemd_timer | bool
+
+- name: Remove leftover cron.d file if switching to systemd timer
+  ansible.builtin.file:
+    path: /etc/cron.d/linux-audit-toolkit
+    state: absent
+  when: audit_use_systemd_timer | bool
+
+# --- Scheduling: cron.d (fallback for hosts without systemd timer preference) ---
+- name: Deploy cron.d schedule
+  ansible.builtin.template:
+    src: cron_linux_audit.j2
+    dest: /etc/cron.d/linux-audit-toolkit
+    owner: root
+    group: root
+    mode: "0644"
+  when: not (audit_use_systemd_timer | bool)
+
+- name: Remove leftover systemd timer if switching to cron
+  ansible.builtin.systemd:
+    name: linux-audit.timer
+    enabled: false
+    state: stopped
+  when: not (audit_use_systemd_timer | bool)
+  ignore_errors: true  # unit may not exist yet on first run

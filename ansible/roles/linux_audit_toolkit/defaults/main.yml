@@ -1,0 +1,36 @@
+---
+# Defaults for role: linux_audit_toolkit
+# Override any of these in inventory group_vars/host_vars, e.g.:
+#   group_vars/webservers.yml:
+#     audit_mailto: webteam@example.com
+#     audit_schedule_hour: 5
+
+# Where the toolkit gets installed on each managed host
+audit_install_dir: /opt/linux-audit-toolkit
+
+# Where scripts write their logs/reports (falls back to /tmp/sysaudit if not writable)
+audit_log_dir: /var/log/sysaudit
+
+# Scheduling — systemd timer is preferred on RHEL 8/9; set to false to use cron.d instead
+audit_use_systemd_timer: true
+audit_schedule_hour: 6
+audit_schedule_minute: 0
+
+# Optional email on WARN/CRIT (requires mailx/postfix already configured on the host)
+audit_mailto: ""
+
+# Optional Slack/Teams incoming webhook for a one-line summary post
+audit_webhook_url: ""
+
+# Threshold overrides passed through as env vars to 10_full_system_report.sh's children
+# (edit script defaults directly if you want these baked in instead of env-driven)
+audit_disk_threshold_pct: 85
+audit_mem_threshold_pct: 90
+audit_failed_login_threshold: 5
+
+# Keep N weeks of rotated audit reports before logrotate deletes them
+audit_logrotate_keep_weeks: 8
+
+# Owner of the installed toolkit files
+audit_file_owner: root
+audit_file_group: root

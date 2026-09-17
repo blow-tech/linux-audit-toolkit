@@ -1,0 +1,10 @@
+[Unit]
+Description=Run linux-audit-toolkit daily at {{ '%02d'|format(audit_schedule_hour|int) }}:{{ '%02d'|format(audit_schedule_minute|int) }}
+
+[Timer]
+OnCalendar=*-*-* {{ '%02d'|format(audit_schedule_hour|int) }}:{{ '%02d'|format(audit_schedule_minute|int) }}:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

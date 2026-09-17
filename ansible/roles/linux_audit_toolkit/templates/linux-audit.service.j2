@@ -1,0 +1,17 @@
+[Unit]
+Description=Daily production audit ({{ audit_install_dir }})
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+Environment=AUDIT_LOGDIR={{ audit_log_dir }}
+{% if audit_mailto %}
+Environment=MAILTO={{ audit_mailto }}
+{% endif %}
+{% if audit_webhook_url %}
+Environment=AUDIT_WEBHOOK_URL={{ audit_webhook_url }}
+{% endif %}
+ExecStart={{ audit_install_dir }}/scripts/10_full_system_report.sh
+# Non-zero exit (1=warn, 2=crit) is expected behavior, not a service failure
+SuccessExitStatus=0 1 2

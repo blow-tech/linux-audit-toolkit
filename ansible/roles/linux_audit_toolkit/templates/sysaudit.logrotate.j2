@@ -1,0 +1,8 @@
+{{ audit_log_dir }}/*.log {{ audit_log_dir }}/*.txt {
+    weekly
+    rotate {{ audit_logrotate_keep_weeks }}
+    compress
+    missingok
+    notifempty
+    su {{ audit_file_owner }} {{ audit_file_group }}
+}
