@@ -1,5 +1,9 @@
 # linux-audit-toolkit
 
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Shell](https://img.shields.io/badge/shell-bash-green.svg)
+![Ansible](https://img.shields.io/badge/ansible-role%20included-red.svg)
+
 Read-only Bash audit scripts for RHEL/CentOS-family production servers.
 Covers disk/inode space, login/logout + brute-force detection, file &
 directory permissions, service health (httpd/nginx/tomcat + core daemons),
@@ -9,6 +13,15 @@ accounts & sudoers, cron/systemd timers, and listening ports/firewall.
 All scripts are **read-only** — no service restarts, no config changes, no
 file modifications outside of `/var/log/sysaudit/` (their own output logs).
 Safe to run in production at any time; no maintenance window required.
+
+## Quick start
+
+```bash
+git clone https://github.com/blow-tech/linux-audit-toolkit.git
+cd linux-audit-toolkit/scripts
+chmod +x *.sh
+sudo ./10_full_system_report.sh
+```
 
 ## Requirements
 
@@ -52,7 +65,7 @@ linux-audit-toolkit/
 ## Manual usage (single host)
 
 ```bash
-git clone https://github.com/<you>/linux-audit-toolkit.git
+git clone https://github.com/blow-tech/linux-audit-toolkit.git
 cd linux-audit-toolkit/scripts
 chmod +x *.sh
 sudo ./10_full_system_report.sh
@@ -180,6 +193,21 @@ sudo systemctl enable --now linux-audit.timer
   your install uses custom locations.
 - None of these scripts collect or transmit data outside the host unless you
   explicitly set `MAILTO` or `AUDIT_WEBHOOK_URL`.
+
+## Tested on
+
+RHEL 8/9, Rocky Linux 9. Should work on any systemd-based RHEL-family
+distro (CentOS Stream, Alma) with Bash 4+ and journald — verify on a
+non-prod host before scheduling fleet-wide.
+
+## Contributing
+
+Issues and PRs welcome — this started as a solution to real operational
+problems, so if you hit a gap or a false positive, open an issue.
+
+## Author
+
+**blow-tech** — [github.com/blow-tech](https://github.com/blow-tech)
 
 ## License
 
