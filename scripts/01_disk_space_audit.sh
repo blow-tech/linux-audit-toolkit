@@ -1,51 +1,33 @@
 #!/usr/bin/env bash
-#===============================================================================
-# 01_disk_space_audit.sh
-# Purpose : Audit filesystem usage, inode usage, and largest directories.
-# Usage   : ./01_disk_space_audit.sh [threshold_percent] [scan_path]
-#           Defaults: threshold=85, scan_path=/
-# Notes   : Read-only. Safe to run in production, no maintenance window needed.
-#===============================================================================
 source "$(dirname "$0")/lib_common.sh"
-
-THRESHOLD="${1:-85}"
-SCAN_PATH="${2:-/}"
-
-hdr "Filesystem usage (df -hT)"
-df -hT -x tmpfs -x devtmpfs -x overlay 2>/dev/null | tee -a "$OUTFILE"
-
-hdr "Filesystems over ${THRESHOLD}% used"
-df -hP -x tmpfs -x devtmpfs 2>/dev/null | awk -v t="$THRESHOLD" 'NR>1 {
-    gsub("%","",$5);
-    if ($5+0 >= t) print
-}' | while read -r line; do
-    crit "High disk usage: $line"
+THRESHOLD=${1:-85}; SCAN_PATH=${2:-}
+[[ $THRESHOLD =~ ^[0-9]{1,3}$ ]] && ((10#$THRESHOLD >= 1 && 10#$THRESHOLD <= 100)) || { unknown 'Threshold must be 1..100'; summary_exit; }
+THRESHOLD=$((10#$THRESHOLD))
+for kind in blocks inodes; do
+    hdr "$kind usage"
+    args=(-P -x tmpfs -x devtmpfs); [[ $kind == inodes ]] && args+=(-i)
+    if collect df "${args[@]}" > "$RUN_DIR/df-$kind"; then
+        cat "$RUN_DIR/df-$kind" | tee -a "$OUTFILE"
+        rows=0
+        while read -r fs total used available pct mount; do
+            [[ $fs == Filesystem ]] && continue
+            [[ -n $fs ]] || continue
+            rows=$((rows+1))
+            if [[ ! $pct =~ ^[0-9]+%$ ]]; then unknown "Unavailable $kind usage: $fs"; continue; fi
+            value=${pct%%%}
+            if ((10#$value >= THRESHOLD)); then
+                if [[ $kind == blocks ]]; then crit "High disk usage: $pct $mount"; else warn "High inode usage: $pct $mount"; fi
+            fi
+        done < "$RUN_DIR/df-$kind"
+        ((rows)) || unknown "Empty $kind collection"
+    fi
 done
-[ "$CRIT_COUNT" -eq 0 ] && log "No filesystem above ${THRESHOLD}%."
-
-hdr "Inode usage (df -i)"
-df -iP -x tmpfs -x devtmpfs 2>/dev/null | tee -a "$OUTFILE"
-df -iP -x tmpfs -x devtmpfs 2>/dev/null | awk -v t="$THRESHOLD" 'NR>1 {
-    gsub("%","",$5);
-    if ($5+0 >= t) print
-}' | while read -r line; do
-    warn "High inode usage: $line"
-done
-
-hdr "Top 15 largest directories under ${SCAN_PATH} (1 level deep, may take a moment)"
-du -x -h --max-depth=1 "$SCAN_PATH" 2>/dev/null | sort -rh | head -15 | tee -a "$OUTFILE"
-
-hdr "Top 15 largest files under /var/log (incl. rotated .gz)"
-find /var/log -type f \( -name "*.log" -o -name "*.gz" -o -name "*-????????" \) -printf '%s %p\n' 2>/dev/null \
-    | sort -rn | head -15 | awk '{printf "%.1f MB\t%s\n", $1/1024/1024, $2}' | tee -a "$OUTFILE"
-
-hdr "Growth check: /var/log total size vs 7 days ago (if find supports -mtime)"
-CUR_SIZE=$(du -sh /var/log 2>/dev/null | awk '{print $1}')
-log "Current /var/log size: ${CUR_SIZE}"
-OLD_LOGS_NOT_ROTATED=$(find /var/log -type f -name "*.log" -mtime +30 -size +100M 2>/dev/null)
-if [ -n "$OLD_LOGS_NOT_ROTATED" ]; then
-    warn "Large (>100MB) .log files older than 30 days found — check logrotate config:"
-    echo "$OLD_LOGS_NOT_ROTATED" | tee -a "$OUTFILE"
+# Filesystem walks are explicitly scoped and opt-in; timeout is per collector.
+if [[ -n $SCAN_PATH ]]; then
+    [[ $SCAN_PATH == /* && -d $SCAN_PATH ]] || { unknown 'Scan path must be an existing absolute directory'; summary_exit; }
+    hdr "Directory sizes under $SCAN_PATH (single filesystem)"
+    if collect du -x -k --max-depth=1 -- "$SCAN_PATH" > "$RUN_DIR/sizes"; then sort -rn "$RUN_DIR/sizes" | sed -n '1,15p' | tee -a "$OUTFILE"; fi
+else
+    log 'NOT REQUESTED: filesystem size walks; provide scan_path to opt in.'
 fi
-
 summary_exit

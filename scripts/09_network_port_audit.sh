@@ -10,18 +10,19 @@
 source "$(dirname "$0")/lib_common.sh"
 
 EXPECTED_PORTS="${1:-22,80,443,8080,8443}"
+[[ $EXPECTED_PORTS =~ ^[0-9]+(,[0-9]+)*$ ]] || { unknown "Invalid expected ports"; summary_exit; }
 IFS=',' read -ra WHITELIST <<< "$EXPECTED_PORTS"
 
-hdr "Listening TCP/UDP ports (ss -tulnp)"
+hdr "Listening TCP/UDP ports (collect ss -tulnp)"
 if [ "$(id -u)" -eq 0 ]; then
-    ss -tulnp 2>/dev/null | tee -a "$OUTFILE"
+    collect ss -tulnp 2>/dev/null | tee -a "$OUTFILE"
 else
     warn "Not root — process names on listening ports will be hidden. Run with sudo for full detail."
-    ss -tuln 2>/dev/null | tee -a "$OUTFILE"
+    collect ss -tuln 2>/dev/null | tee -a "$OUTFILE"
 fi
 
 hdr "Unexpected listening ports (outside whitelist: ${EXPECTED_PORTS})"
-LISTENING=$(ss -tuln 2>/dev/null | awk 'NR>1 {print $5}' | grep -oE '[0-9]+$' | sort -un)
+LISTENING=$(collect ss -tuln 2>/dev/null | collect awk 'NR>1 {print $5}' | grep -oE '[0-9]+$' | sort -un)
 for port in $LISTENING; do
     MATCH=0
     for w in "${WHITELIST[@]}"; do
@@ -33,29 +34,22 @@ for port in $LISTENING; do
 done
 
 hdr "Established connection count by remote IP (top 15)"
-ss -tn state established 2>/dev/null | awk 'NR>1 {print $4}' | sed -E 's/:[0-9]+$//' \
+collect ss -tn state established 2>/dev/null | collect awk 'NR>1 {print $4}' | sed -E 's/:[0-9]+$//' \
     | sort | uniq -c | sort -rn | head -15 | tee -a "$OUTFILE"
 
 hdr "Firewall status"
-if command -v firewall-cmd >/dev/null 2>&1 && systemctl is-active firewalld >/dev/null 2>&1; then
+if command -v collect firewall-cmd >/dev/null 2>&1 && systemctl is-active firewalld >/dev/null 2>&1; then
     log "firewalld active. Zones and rules:"
-    firewall-cmd --list-all 2>/dev/null | tee -a "$OUTFILE"
-elif command -v iptables >/dev/null 2>&1; then
-    log "firewalld not active — showing iptables rules:"
-    iptables -L -n -v 2>/dev/null | tee -a "$OUTFILE"
+    collect firewall-cmd --list-all 2>/dev/null | tee -a "$OUTFILE"
+elif command -v collect iptables >/dev/null 2>&1; then
+    log "firewalld not active — showing collect iptables rules:"
+    collect iptables -L -n -v 2>/dev/null | tee -a "$OUTFILE"
 else
     warn "No firewall tooling detected (firewalld/iptables) — verify host is protected at network layer."
 fi
 
 hdr "Default route / basic connectivity"
-ip route show default 2>/dev/null | tee -a "$OUTFILE"
-GATEWAY=$(ip route show default 2>/dev/null | awk '{print $3; exit}')
-if [ -n "$GATEWAY" ]; then
-    if ping -c 2 -W 2 "$GATEWAY" >/dev/null 2>&1; then
-        log "Default gateway ${GATEWAY} is reachable."
-    else
-        crit "Default gateway ${GATEWAY} is NOT reachable."
-    fi
-fi
+collect ip route show default 2>/dev/null | tee -a "$OUTFILE"
+log 'Gateway reachability not probed; ICMP failure is not proof of an outage.'
 
 summary_exit
