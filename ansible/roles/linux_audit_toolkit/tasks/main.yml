@@ -4,6 +4,18 @@
 # and configures log rotation for their output. No service restarts of
 # application services (httpd/nginx/tomcat) are performed by this role.
 
+- name: Inspect the managed timer file
+  ansible.builtin.stat:
+    path: /etc/systemd/system/linux-audit.timer
+  register: audit_timer_file
+
+- name: Validate scheduling scope before deployment
+  ansible.builtin.assert:
+    that:
+      - audit_install_dir is match('^/[A-Za-z0-9_/-]+$')
+      - not audit_schedule_enabled or (audit_scan_root | length > 0 and audit_service_units | length > 0 and audit_web_logs | length > 0)
+    fail_msg: "Scheduling needs reviewed scan root, service units, log files and a simple absolute install path."
+
 - name: Assert this is a systemd-based host (RHEL/CentOS/Rocky/Alma family)
   ansible.builtin.assert:
     that:
@@ -39,7 +51,7 @@
 
 - name: Deploy audit scripts
   ansible.builtin.copy:
-    src: "../../scripts/{{ item }}"
+    src: "{{ playbook_dir }}/../scripts/{{ item }}"
     dest: "{{ audit_install_dir }}/scripts/{{ item }}"
     owner: "{{ audit_file_owner }}"
     group: "{{ audit_file_group }}"
@@ -58,6 +70,14 @@
     - 10_full_system_report.sh
   notify: audit toolkit updated
 
+- name: Deploy scoped runner
+  ansible.builtin.template:
+    src: audit-runner.sh.j2
+    dest: "{{ audit_install_dir }}/audit-runner.sh"
+    owner: "{{ audit_file_owner }}"
+    group: "{{ audit_file_group }}"
+    mode: "0750"
+
 - name: Deploy logrotate config for audit output
   ansible.builtin.template:
     src: sysaudit.logrotate.j2
@@ -74,7 +94,7 @@
     owner: root
     group: root
     mode: "0644"
-  when: audit_use_systemd_timer | bool
+  when: audit_schedule_enabled | bool and audit_use_systemd_timer | bool
   notify: reload systemd
 
 - name: Deploy systemd timer unit
@@ -84,7 +104,7 @@
     owner: root
     group: root
     mode: "0644"
-  when: audit_use_systemd_timer | bool
+  when: audit_schedule_enabled | bool and audit_use_systemd_timer | bool
   notify: reload systemd
 
 - name: Flush handlers so systemd sees the new units before we enable them
@@ -96,13 +116,13 @@
     enabled: true
     state: started
     daemon_reload: true
-  when: audit_use_systemd_timer | bool
+  when: audit_schedule_enabled | bool and audit_use_systemd_timer | bool
 
 - name: Remove leftover cron.d file if switching to systemd timer
   ansible.builtin.file:
     path: /etc/cron.d/linux-audit-toolkit
     state: absent
-  when: audit_use_systemd_timer | bool
+  when: audit_schedule_enabled | bool and audit_use_systemd_timer | bool
 
 # --- Scheduling: cron.d (fallback for hosts without systemd timer preference) ---
 - name: Deploy cron.d schedule
@@ -112,12 +132,24 @@
     owner: root
     group: root
     mode: "0644"
-  when: not (audit_use_systemd_timer | bool)
+  when: audit_schedule_enabled | bool and not (audit_use_systemd_timer | bool)
 
 - name: Remove leftover systemd timer if switching to cron
   ansible.builtin.systemd:
     name: linux-audit.timer
     enabled: false
     state: stopped
-  when: not (audit_use_systemd_timer | bool)
-  ignore_errors: true  # unit may not exist yet on first run
+  when: audit_schedule_enabled | bool and not (audit_use_systemd_timer | bool) and audit_timer_file.stat.exists
+
+- name: Disable scheduling when not explicitly enabled
+  ansible.builtin.systemd:
+    name: linux-audit.timer
+    enabled: false
+    state: stopped
+  when: not (audit_schedule_enabled | bool) and audit_timer_file.stat.exists
+
+- name: Remove only the toolkit cron when scheduling is disabled
+  ansible.builtin.file:
+    path: /etc/cron.d/linux-audit-toolkit
+    state: absent
+  when: not (audit_schedule_enabled | bool)

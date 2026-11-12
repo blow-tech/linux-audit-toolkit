@@ -1,8 +1,3 @@
-{{ audit_log_dir }}/*.log {{ audit_log_dir }}/*.txt {
-    weekly
-    rotate {{ audit_logrotate_keep_weeks }}
-    compress
-    missingok
-    notifempty
-    su {{ audit_file_owner }} {{ audit_file_group }}
-}
+# Per-run audit evidence lives in {{ audit_log_dir }}/run.*/.
+# Automatic rotation/deletion is intentionally disabled. Define a separately
+# reviewed retention/archive policy; monitor space and exclude active runs.

@@ -12,3 +12,6 @@ inventory/host_vars/
 # OS/editor cruft
 .DS_Store
 *.swp
+
+__pycache__/
+*.pyc
