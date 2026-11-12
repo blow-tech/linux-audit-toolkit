@@ -8,10 +8,12 @@
 #   ansible-playbook -i inventory/hosts.ini playbook.yml --check --diff   # dry run
 #
 # This role is read-only from the target application's perspective — it only
-# installs scripts and a schedule; no downtime, no maintenance window needed.
+# changes files and optional scheduling. Review a limited-host change plan first.
 
 - name: Deploy linux-audit-toolkit
   hosts: linux_servers
+  serial: 1
+  any_errors_fatal: true
   become: true
   gather_facts: true
   roles:

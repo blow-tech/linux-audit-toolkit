@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 source "$(dirname "$0")/lib_common.sh"
-DAYS_BACK=${1:-1}; FAIL_THRESHOLD=${2:-5}
+DAYS_BACK=${1:-1}; FAIL_THRESHOLD=${2:-${AUDIT_FAILED_LOGIN_THRESHOLD:-5}}
 [[ $DAYS_BACK =~ ^[1-9][0-9]{0,3}$ && $FAIL_THRESHOLD =~ ^[1-9][0-9]{0,6}$ ]] || { unknown 'Invalid days or threshold'; summary_exit; }
 need_root || :
 hdr 'Current and historical interactive logins'

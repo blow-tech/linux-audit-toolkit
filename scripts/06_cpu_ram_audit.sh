@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 source "$(dirname "$0")/lib_common.sh"
-LOAD_THRESHOLD=${1:-1.0}; MEM_THRESHOLD=${2:-90}
+LOAD_THRESHOLD=${1:-1.0}; MEM_THRESHOLD=${2:-${AUDIT_MEM_THRESHOLD:-90}}
 [[ $LOAD_THRESHOLD =~ ^[0-9]+([.][0-9]+)?$ && $MEM_THRESHOLD =~ ^[0-9]{1,3}$ ]] && ((10#$MEM_THRESHOLD >= 1 && 10#$MEM_THRESHOLD <= 100)) || { unknown 'Invalid thresholds'; summary_exit; }
 if cores=$(collect nproc) && load=$(collect cat /proc/loadavg); then
     read -r load1 _ <<< "$load"

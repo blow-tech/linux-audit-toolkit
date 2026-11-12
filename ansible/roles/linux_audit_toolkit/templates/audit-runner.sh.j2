@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Managed scoped collector. Only report output is written; no notification integration.
+export AUDIT_LOGDIR={{ audit_log_dir | quote }}
+export AUDIT_SCAN_ROOT={{ audit_scan_root | quote }}
+export AUDIT_SERVICE_UNITS={{ audit_service_units | join(' ') | quote }}
+export AUDIT_WEB_LOGS={{ audit_web_logs | join('\n') | quote }}
+export AUDIT_TIMEOUT={{ audit_timeout_seconds | string | quote }}
+export AUDIT_CHILD_TIMEOUT={{ audit_child_timeout_seconds | string | quote }}
+export AUDIT_DISK_THRESHOLD={{ audit_disk_threshold_pct | string | quote }}
+export AUDIT_MEM_THRESHOLD={{ audit_mem_threshold_pct | string | quote }}
+export AUDIT_FAILED_LOGIN_THRESHOLD={{ audit_failed_login_threshold | string | quote }}
+exec bash {{ (audit_install_dir ~ '/scripts/10_full_system_report.sh') | quote }}

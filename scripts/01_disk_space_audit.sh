@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 source "$(dirname "$0")/lib_common.sh"
-THRESHOLD=${1:-85}; SCAN_PATH=${2:-}
+THRESHOLD=${1:-${AUDIT_DISK_THRESHOLD:-85}}; SCAN_PATH=${2:-}
 [[ $THRESHOLD =~ ^[0-9]{1,3}$ ]] && ((10#$THRESHOLD >= 1 && 10#$THRESHOLD <= 100)) || { unknown 'Threshold must be 1..100'; summary_exit; }
 THRESHOLD=$((10#$THRESHOLD))
 for kind in blocks inodes; do
